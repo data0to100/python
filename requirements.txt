@@ -1,0 +1,49 @@
+# Core Data Analysis Libraries
+pandas==2.1.4
+numpy==1.24.3
+scipy==1.11.4
+
+# Data Visualization
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.17.0
+bokeh==3.3.2
+
+# Machine Learning
+scikit-learn==1.3.2
+xgboost==2.0.2
+lightgbm==4.1.0
+
+# Statistical Analysis
+statsmodels==0.14.1
+pingouin==0.5.4
+
+# Data Processing & I/O
+openpyxl==3.1.2
+xlrd==2.0.1
+requests==2.31.0
+beautifulsoup4==4.12.2
+sqlalchemy==2.0.23
+
+# Jupyter & Development
+jupyter==1.0.0
+ipykernel==6.27.1
+notebook==7.0.6
+
+# Performance & Optimization
+numba==0.58.1
+dask==2023.12.0
+
+# Database Connectivity
+psycopg2-binary==2.9.9
+pymongo==4.6.0
+
+# Configuration & Utilities
+python-dotenv==1.0.0
+tqdm==4.66.1
+
+# Model Interpretation & Explainability
+shap==0.44.0
+
+# Additional ML Libraries
+joblib==1.3.2

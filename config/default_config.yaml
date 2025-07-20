@@ -1,0 +1,119 @@
+# ML Pipeline Configuration
+# This file contains all configurable parameters for the ML pipeline
+
+# Global settings
+project_name: "ml_pipeline_project"
+experiment_name: "default_experiment"
+random_seed: 42
+output_dir: "outputs"
+
+# Data loading and processing configuration
+data:
+  # Data source type: csv, sql, parquet
+  data_source: "csv"
+  file_path: null
+  sql_connection_string: null
+  sql_query: null
+  
+  # Big data processing
+  use_big_data_engine: true
+  big_data_engine: "dask"  # dask, modin, vaex
+  chunk_size: 10000
+  n_workers: 4
+  
+  # Data quality thresholds
+  max_missing_percentage: 0.3
+  min_unique_values: 2
+
+# Outlier detection configuration
+outlier_detection:
+  methods: ["isolation_forest", "z_score", "iqr"]
+  isolation_forest_contamination: 0.1
+  z_score_threshold: 3.0
+  iqr_multiplier: 1.5
+  remove_outliers: true
+
+# Feature engineering configuration
+feature_engineering:
+  # Datetime features
+  create_datetime_features: true
+  datetime_features: 
+    - "year"
+    - "month" 
+    - "day"
+    - "hour"
+    - "dayofweek"
+    - "quarter"
+    - "is_weekend"
+    - "cyclical_month"
+    - "cyclical_hour"
+    - "cyclical_dayofweek"
+  
+  # Categorical encoding
+  categorical_encoding: "auto"
+  max_categories: 50
+  
+  # Numerical features
+  scaling_method: "standard"  # standard, minmax, robust, none
+  polynomial_features: false
+  polynomial_degree: 2
+  
+  # Feature selection
+  feature_selection: true
+  feature_selection_method: "mutual_info"  # mutual_info, f_test, model_based
+  max_features: null
+
+# Model configuration
+model:
+  # AutoML settings
+  automl_framework: "pycaret"  # pycaret, h2o, auto_sklearn
+  automl_time_budget: 3600  # seconds
+  cross_validation_folds: 5
+  
+  # Time series models
+  time_series_models:
+    - "prophet"
+    - "arima" 
+    - "lstm"
+    - "seasonal_decompose"
+  
+  forecast_horizon: 30
+  seasonality_detection: true
+  
+  # Model evaluation
+  primary_metric: "auto"
+  optimize_for: "accuracy"  # accuracy, speed, interpretability
+  
+  # Model selection
+  model_selection_strategy: "best_score"
+  ensemble_methods: true
+
+# Production configuration
+production:
+  # Model versioning
+  model_registry: "mlflow"  # mlflow, local
+  model_version_strategy: "timestamp"
+  
+  # Monitoring
+  enable_monitoring: true
+  drift_detection: true
+  performance_threshold: 0.05
+  
+  # Retraining
+  auto_retrain: false
+  retrain_frequency: "weekly"
+  retrain_threshold: 0.1
+  
+  # Deployment
+  deployment_target: "local"  # local, docker, kubernetes
+  api_framework: "fastapi"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
+  log_file: "logs/ml_pipeline.log"
+  rotation: "1 week"
+  retention: "1 month"
+  json_logging: false
+  mlflow_tracking: true

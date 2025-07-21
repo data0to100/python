@@ -41,27 +41,53 @@ Examples:
     args, remaining = parser.parse_known_args()
     
     if args.interface == 'web':
-        # Run Streamlit interface
-        import subprocess
-        import os
+        # Check for ML platform flag
+        app_choice = input("Choose application:\n1. PDF to Speech/Video Converter\n2. Enterprise AI/ML Platform\nEnter choice (1 or 2): ")
         
-        streamlit_script = Path(__file__).parent / 'src' / 'interfaces' / 'streamlit_app.py'
-        
-        # Set environment variable for Streamlit
-        env = os.environ.copy()
-        env['PYTHONPATH'] = str(Path(__file__).parent / 'src')
-        
-        cmd = ['streamlit', 'run', str(streamlit_script)]
-        
-        try:
-            subprocess.run(cmd, env=env, check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Error running Streamlit: {e}")
-            print("Make sure Streamlit is installed: pip install streamlit")
-            return 1
-        except KeyboardInterrupt:
-            print("\nStreamlit app stopped.")
-            return 0
+        if app_choice == '2':
+            # Run ML Platform
+            import subprocess
+            import os
+            
+            streamlit_script = Path(__file__).parent / 'src' / 'interfaces' / 'ml_platform_app.py'
+            
+            # Set environment variable for Streamlit
+            env = os.environ.copy()
+            env['PYTHONPATH'] = str(Path(__file__).parent / 'src')
+            
+            cmd = ['streamlit', 'run', str(streamlit_script)]
+            
+            try:
+                subprocess.run(cmd, env=env, check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Error running ML Platform: {e}")
+                print("Make sure all dependencies are installed: pip install -r requirements.txt")
+                return 1
+            except KeyboardInterrupt:
+                print("\nML Platform stopped.")
+                return 0
+        else:
+            # Run PDF Converter (default)
+            import subprocess
+            import os
+            
+            streamlit_script = Path(__file__).parent / 'src' / 'interfaces' / 'streamlit_app.py'
+            
+            # Set environment variable for Streamlit
+            env = os.environ.copy()
+            env['PYTHONPATH'] = str(Path(__file__).parent / 'src')
+            
+            cmd = ['streamlit', 'run', str(streamlit_script)]
+            
+            try:
+                subprocess.run(cmd, env=env, check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Error running Streamlit: {e}")
+                print("Make sure Streamlit is installed: pip install streamlit")
+                return 1
+            except KeyboardInterrupt:
+                print("\nStreamlit app stopped.")
+                return 0
     
     elif args.interface == 'cli':
         # Run CLI interface with remaining arguments

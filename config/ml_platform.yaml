@@ -1,0 +1,26 @@
+database:
+  host: localhost
+  port: 5432
+  database: ml_platform
+  username: postgres
+  password: ''
+
+cloud:
+  aws_region: us-east-1
+  azure_storage_account: ''
+  gcp_project_id: ''
+
+models:
+  default_test_size: 0.2
+  random_state: 42
+  cv_folds: 5
+  max_evals: 100
+
+logging:
+  level: INFO
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+cache:
+  enabled: true
+  redis_url: redis://localhost:6379/0
+  ttl: 3600

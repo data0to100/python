@@ -25,6 +25,9 @@ Examples:
   # Run CLI interface  
   python main.py --interface cli --input script.pdf --output-type audio
 
+  # Run Content Generation workflow
+  python main.py --interface content-gen --input document.pdf
+
   # Show CLI help
   python main.py --interface cli --help
         """
@@ -32,7 +35,7 @@ Examples:
     
     parser.add_argument(
         '--interface',
-        choices=['web', 'cli'],
+        choices=['web', 'cli', 'content-gen'],
         default='web',
         help='Interface to run (default: web)'
     )
@@ -72,6 +75,17 @@ Examples:
             return cli_main()
         except ImportError as e:
             print(f"Error importing CLI module: {e}")
+            return 1
+    
+    elif args.interface == 'content-gen':
+        # Run Content Generation CLI with remaining arguments
+        sys.argv = ['content_generator_cli.py'] + remaining
+        
+        try:
+            from interfaces.content_generator_cli import main as content_gen_main
+            return content_gen_main()
+        except ImportError as e:
+            print(f"Error importing Content Generator module: {e}")
             return 1
     
     return 0

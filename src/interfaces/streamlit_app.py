@@ -10,6 +10,7 @@ import sys
 import logging
 import tempfile
 import shutil
+import os
 from pathlib import Path
 from typing import Optional, List, Dict
 import io
@@ -17,10 +18,12 @@ import io
 # Add src to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.config import config, VoiceConfig, OutputConfig
+from core.config import config, VoiceConfig, OutputConfig, AIConfig, RenderforestConfig
 from core.pdf_processor import PDFProcessor
 from core.tts_engine import TTSManager
 from core.video_generator import VideoGenerator
+from core.ai_summarizer import AISummarizer
+from core.renderforest_integration import RenderforestIntegration
 from utils.file_manager import FileManager
 from utils.subtitle_generator import SubtitleGenerator
 
@@ -38,6 +41,10 @@ class StreamlitApp:
         self.file_manager = FileManager()
         self.subtitle_generator = SubtitleGenerator()
         
+        # Initialize AI components (lazy loading to avoid startup delays)
+        self.ai_summarizer = None
+        self.renderforest = None
+        
         # Initialize session state
         if 'pdf_pages' not in st.session_state:
             st.session_state.pdf_pages = None
@@ -45,6 +52,10 @@ class StreamlitApp:
             st.session_state.conversion_complete = False
         if 'output_files' not in st.session_state:
             st.session_state.output_files = {}
+        if 'summary_text' not in st.session_state:
+            st.session_state.summary_text = None
+        if 'renderforest_enabled' not in st.session_state:
+            st.session_state.renderforest_enabled = False
     
     def setup_page(self):
         """Setup Streamlit page configuration."""
@@ -55,10 +66,13 @@ class StreamlitApp:
             initial_sidebar_state="expanded"
         )
         
-        st.title("🎬 PDF Script to Speech/Video Converter")
+        st.title("🎬 AI-Enhanced PDF Script to Video Converter")
         st.markdown("""
-        Convert your PDF scripts into natural-sounding audio and engaging videos with subtitles.
-        Upload a PDF, configure your preferences, and let the magic happen!
+        **Transform your PDF scripts into engaging videos with AI-powered summarization!**
+        
+        📋 **Upload PDF** → 🤖 **AI Summarize** → 🎤 **Text-to-Speech** → 🎬 **Renderforest Video**
+        
+        Upload a PDF, let AI create a concise summary, and generate professional videos using Renderforest templates.
         """)
     
     def render_sidebar(self) -> Dict:
@@ -145,6 +159,81 @@ class StreamlitApp:
             include_subtitles = False
             fps = 24
         
+        # AI Summarization Configuration
+        st.sidebar.subheader("🤖 AI Summarization")
+        
+        enable_summarization = st.sidebar.checkbox(
+            "Enable AI Summarization",
+            value=True,
+            help="Use AI to create concise summaries of your PDF content"
+        )
+        
+        if enable_summarization:
+            available_models = list(AISummarizer.get_available_models().keys())
+            summarization_model = st.sidebar.selectbox(
+                "AI Model",
+                available_models,
+                index=available_models.index('distilbart-cnn') if 'distilbart-cnn' in available_models else 0,
+                help="AI model for summarization"
+            )
+            
+            max_summary_length = st.sidebar.slider(
+                "Max Summary Length (words)",
+                min_value=50,
+                max_value=300,
+                value=150,
+                step=25,
+                help="Maximum words in the summary"
+            )
+            
+            summarize_individually = st.sidebar.checkbox(
+                "Summarize Pages Individually",
+                value=False,
+                help="Create separate summaries for each page"
+            )
+        else:
+            summarization_model = None
+            max_summary_length = 150
+            summarize_individually = False
+
+        # Renderforest Configuration
+        st.sidebar.subheader("🎬 Renderforest Integration")
+        
+        enable_renderforest = st.sidebar.checkbox(
+            "Create Renderforest Video",
+            value=False,
+            help="Generate professional videos using Renderforest templates"
+        )
+        
+        if enable_renderforest:
+            renderforest_api_key = st.sidebar.text_input(
+                "Renderforest API Key",
+                type="password",
+                value=os.getenv('RENDERFOREST_API_KEY', ''),
+                help="Your Renderforest API key"
+            )
+            
+            available_templates = list(RenderforestIntegration.get_available_templates().keys())
+            renderforest_template = st.sidebar.selectbox(
+                "Video Template",
+                available_templates,
+                help="Renderforest template for video creation"
+            )
+            
+            video_quality = st.sidebar.selectbox(
+                "Video Quality",
+                ["low", "medium", "high"],
+                index=2,
+                help="Quality of the rendered video"
+            )
+            
+            st.session_state.renderforest_enabled = bool(renderforest_api_key)
+        else:
+            renderforest_api_key = ""
+            renderforest_template = "minimal_typography"
+            video_quality = "high"
+            st.session_state.renderforest_enabled = False
+
         # Advanced Options
         with st.sidebar.expander("🔧 Advanced Options"):
             separate_pages = st.checkbox(
@@ -177,9 +266,144 @@ class StreamlitApp:
             'fps': fps,
             'separate_pages': separate_pages,
             'extraction_method': extraction_method,
-            'background_image': background_image
+            'background_image': background_image,
+            # AI Summarization options
+            'enable_summarization': enable_summarization,
+            'summarization_model': summarization_model,
+            'max_summary_length': max_summary_length,
+            'summarize_individually': summarize_individually,
+            # Renderforest options
+            'enable_renderforest': enable_renderforest,
+            'renderforest_api_key': renderforest_api_key,
+            'renderforest_template': renderforest_template,
+            'video_quality': video_quality
         }
     
+    def _get_ai_summarizer(self, model_name: str = 'distilbart-cnn'):
+        """Lazy load AI summarizer to avoid startup delays."""
+        if self.ai_summarizer is None or getattr(self.ai_summarizer, 'model_name', None) != model_name:
+            try:
+                with st.spinner(f"Loading AI model ({model_name})..."):
+                    self.ai_summarizer = AISummarizer(model_name=model_name)
+                st.success("AI model loaded successfully!")
+            except Exception as e:
+                st.error(f"Failed to load AI model: {e}")
+                return None
+        return self.ai_summarizer
+    
+    def _get_renderforest_integration(self, api_key: str):
+        """Lazy load Renderforest integration."""
+        if self.renderforest is None:
+            try:
+                self.renderforest = RenderforestIntegration(api_key=api_key)
+                # Test connection
+                account_info = self.renderforest.get_account_info()
+                if account_info:
+                    st.success("Renderforest connected successfully!")
+                else:
+                    st.warning("Renderforest connection may have issues")
+            except Exception as e:
+                st.error(f"Failed to initialize Renderforest: {e}")
+                return None
+        return self.renderforest
+    
+    def handle_ai_summarization(self, pages: List[Dict], settings: Dict):
+        """Handle AI summarization of extracted text."""
+        if not settings.get('enable_summarization'):
+            return None
+        
+        summarizer = self._get_ai_summarizer(settings.get('summarization_model', 'distilbart-cnn'))
+        if not summarizer:
+            return None
+        
+        try:
+            with st.spinner("🤖 AI is summarizing your content..."):
+                summary = summarizer.summarize_pages(
+                    pages=pages,
+                    summarize_individually=settings.get('summarize_individually', False),
+                    max_length=settings.get('max_summary_length', 150),
+                    min_length=max(30, settings.get('max_summary_length', 150) // 5)
+                )
+                
+                st.session_state.summary_text = summary
+                return summary
+                
+        except Exception as e:
+            st.error(f"AI summarization failed: {e}")
+            return None
+    
+    def display_summary_results(self, summary, settings: Dict):
+        """Display AI summarization results."""
+        if not summary:
+            return
+        
+        st.subheader("🤖 AI-Generated Summary")
+        
+        if settings.get('summarize_individually') and isinstance(summary, list):
+            # Individual page summaries
+            for page_summary in summary:
+                page_num = page_summary.get('page', 0)
+                summary_text = page_summary.get('summary', '')
+                
+                if summary_text:
+                    with st.expander(f"📄 Page {page_num} Summary"):
+                        st.write(summary_text)
+            
+            # Combine all summaries for TTS
+            combined_summary = " ".join([
+                page_summary.get('summary', '') 
+                for page_summary in summary 
+                if page_summary.get('summary', '')
+            ])
+            st.session_state.summary_text = combined_summary
+            
+        else:
+            # Single combined summary
+            st.write(summary)
+            
+        # Allow editing of the summary
+        edited_summary = st.text_area(
+            "✏️ Edit Summary (Optional)",
+            value=st.session_state.summary_text or summary,
+            height=150,
+            help="You can edit the AI-generated summary before creating the video"
+        )
+        
+        if edited_summary != st.session_state.summary_text:
+            st.session_state.summary_text = edited_summary
+    
+    def handle_renderforest_video(self, text_content: str, audio_file_path: Path, settings: Dict):
+        """Handle Renderforest video creation."""
+        if not settings.get('enable_renderforest') or not settings.get('renderforest_api_key'):
+            return None
+        
+        renderforest = self._get_renderforest_integration(settings['renderforest_api_key'])
+        if not renderforest:
+            return None
+        
+        try:
+            with st.spinner("🎬 Creating Renderforest video..."):
+                # Create video using the complete workflow
+                video_path = renderforest.create_complete_video(
+                    text_content=text_content,
+                    template_name=settings.get('renderforest_template', 'minimal_typography'),
+                    title="AI-Generated Video from PDF Script",
+                    audio_file_path=audio_file_path if audio_file_path and audio_file_path.exists() else None,
+                    output_path=Path("video_output") / "renderforest_video.mp4",
+                    quality=settings.get('video_quality', 'high')
+                )
+                
+                if video_path and video_path.exists():
+                    st.success("🎉 Renderforest video created successfully!")
+                    return video_path
+                else:
+                    st.error("Failed to create Renderforest video")
+                    return None
+                    
+        except Exception as e:
+            st.error(f"Renderforest video creation failed: {e}")
+            return None
+
     def handle_pdf_upload(self, extraction_method: str):
         """Handle PDF file upload and processing."""
         uploaded_file = st.file_uploader(
@@ -295,6 +519,31 @@ class StreamlitApp:
             
             audio_files = []
             video_file = None
+            renderforest_video_file = None
+            
+            # AI Summarization Step
+            if settings.get('enable_summarization'):
+                status_text.text("🤖 AI Summarizing content...")
+                progress_bar.progress(5)
+                
+                summary = self.handle_ai_summarization(pages, settings)
+                if summary:
+                    # Display summary results
+                    st.markdown("---")
+                    self.display_summary_results(summary, settings)
+                    
+                    # Use summary for text-to-speech instead of original text
+                    if isinstance(summary, str):
+                        # Single summary - replace pages content with summary
+                        pages = [{'page': 1, 'text': summary}]
+                        settings['separate_pages'] = False  # Force single audio file for summary
+                    elif isinstance(summary, list):
+                        # Individual page summaries
+                        pages = [
+                            {'page': item.get('page', i+1), 'text': item.get('summary', '')}
+                            for i, item in enumerate(summary)
+                            if item.get('summary', '').strip()
+                        ]
             
             # Generate audio
             if settings['output_type'] in ["Audio Only", "Both Audio and Video"]:
@@ -386,10 +635,32 @@ class StreamlitApp:
                 
                 progress_bar.progress(80)
             
+            # Renderforest Video Creation Step
+            if settings.get('enable_renderforest') and settings.get('renderforest_api_key'):
+                status_text.text("🎬 Creating Renderforest video...")
+                progress_bar.progress(85)
+                
+                # Use summary text if available, otherwise use original content
+                text_for_video = st.session_state.summary_text
+                if not text_for_video:
+                    text_for_video = " ".join(page['text'] for page in pages)
+                
+                # Use the first audio file if available
+                audio_file_for_video = audio_files[0] if audio_files else None
+                
+                renderforest_video_file = self.handle_renderforest_video(
+                    text_content=text_for_video,
+                    audio_file_path=audio_file_for_video,
+                    settings=settings
+                )
+                
+                progress_bar.progress(95)
+            
             # Store results in session state
             st.session_state.output_files = {
                 'audio_files': audio_files,
                 'video_file': video_file,
+                'renderforest_video_file': renderforest_video_file,
                 'temp_dir': temp_dir
             }
             
@@ -413,6 +684,7 @@ class StreamlitApp:
         output_files = st.session_state.output_files
         audio_files = output_files.get('audio_files', [])
         video_file = output_files.get('video_file')
+        renderforest_video_file = output_files.get('renderforest_video_file')
         
         # Audio downloads
         if audio_files:
@@ -460,6 +732,33 @@ class StreamlitApp:
                         mime="video/mp4",
                         key="video_download"
                     )
+        
+        # Renderforest Video download
+        if renderforest_video_file and renderforest_video_file.exists():
+            st.subheader("🎬 Renderforest Professional Video")
+            
+            file_info = self.file_manager.get_file_info(renderforest_video_file)
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"🎥 {renderforest_video_file.name} ({file_info['size_mb']} MB)")
+                st.success("🎉 Professional video created with Renderforest!")
+                
+                # Display video preview
+                try:
+                    st.video(str(renderforest_video_file))
+                except:
+                    st.info("Video preview not available, but file can be downloaded.")
+            
+            with col2:
+                with open(renderforest_video_file, 'rb') as f:
+                    st.download_button(
+                        label="Download Renderforest Video",
+                        data=f.read(),
+                        file_name=renderforest_video_file.name,
+                        mime="video/mp4",
+                        key="renderforest_video_download"
+                    )
     
     def render_main_content(self, settings: Dict):
         """Render main content area."""
@@ -496,7 +795,8 @@ class StreamlitApp:
         st.markdown("---")
         st.markdown("""
         <div style='text-align: center; color: #666;'>
-            <p>Built with ❤️ using Streamlit, PyMuPDF, MoviePy, and various TTS engines.</p>
+            <p>Built with ❤️ using Streamlit, PyMuPDF, MoviePy, Transformers (AI), and Renderforest API.</p>
+            <p>🤖 AI-powered summarization • 🎬 Professional video creation • 🎤 Multiple TTS engines</p>
             <p>For best results, use clear, well-formatted PDF scripts.</p>
         </div>
         """, unsafe_allow_html=True)

@@ -10,3 +10,9 @@ python-dotenv==1.0.0
 argparse
 pathlib
 typing
+# AI Summarization dependencies
+transformers==4.35.2
+torch==2.1.0
+sentencepiece==0.1.99
+# Additional web scraping and API dependencies
+beautifulsoup4==4.12.2

@@ -24,6 +24,24 @@ class VoiceConfig:
     voice_id: Optional[str] = None  # For specific voice selection
 
 @dataclass
+class AIConfig:
+    """Configuration for AI summarization."""
+    summarization_model: str = "distilbart-cnn"  # Model to use for summarization
+    max_summary_length: int = 150  # Maximum words in summary
+    min_summary_length: int = 30   # Minimum words in summary
+    device: str = "auto"  # "auto", "cpu", or "cuda"
+    summarize_individually: bool = False  # Summarize pages individually
+
+@dataclass
+class RenderforestConfig:
+    """Configuration for Renderforest integration."""
+    api_key: Optional[str] = None
+    template: str = "minimal_typography"  # Default template
+    video_quality: str = "high"  # "low", "medium", "high"
+    include_voiceover: bool = True
+    style_options: Dict[str, Any] = None
+
+@dataclass
 class OutputConfig:
     """Configuration for output settings."""
     audio_format: str = "mp3"  # "mp3" or "wav"
@@ -48,6 +66,8 @@ class AppConfig:
         self.voice = VoiceConfig()
         self.output = OutputConfig()
         self.paths = PathConfig()
+        self.ai = AIConfig()
+        self.renderforest = RenderforestConfig()
         self.api_keys = self._load_api_keys()
         self._ensure_directories()
     

@@ -1,74 +1,112 @@
 #!/usr/bin/env python3
 """
-Setup script for PDF Script to Speech/Video Converter.
+Setup script for PDF to Video Creator
+Automates the installation and configuration process.
 """
 
-from setuptools import setup, find_packages
+import os
+import sys
+import subprocess
+import shutil
 from pathlib import Path
 
-# Read README file
-readme_file = Path(__file__).parent / "README.md"
-long_description = readme_file.read_text(encoding="utf-8") if readme_file.exists() else ""
+def check_python_version():
+    """Check if Python version is compatible"""
+    if sys.version_info < (3, 8):
+        print("❌ Python 3.8 or higher is required")
+        print(f"Current version: {sys.version}")
+        return False
+    print(f"✅ Python version: {sys.version.split()[0]}")
+    return True
 
-# Read requirements
-requirements_file = Path(__file__).parent / "requirements.txt"
-requirements = []
-if requirements_file.exists():
-    requirements = requirements_file.read_text().strip().split('\n')
-    requirements = [req.strip() for req in requirements if req.strip() and not req.startswith('#')]
+def install_dependencies():
+    """Install required dependencies"""
+    print("📦 Installing dependencies...")
+    
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+        print("✅ Dependencies installed successfully")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to install dependencies: {e}")
+        return False
 
-setup(
-    name="pdf-script-converter",
-    version="1.0.0",
-    description="Convert PDF scripts to speech and video with subtitles",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    author="PDF Script Converter Team",
-    author_email="contact@example.com",
-    url="https://github.com/yourusername/pdf-script-converter",
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
-    include_package_data=True,
-    install_requires=requirements,
-    extras_require={
-        "dev": [
-            "pytest>=7.0.0",
-            "pytest-cov>=4.0.0",
-            "black>=23.0.0",
-            "flake8>=6.0.0",
-            "mypy>=1.0.0",
-            "reportlab>=4.0.0"
-        ],
-        "audio": [
-            "pydub>=0.25.0",
-            "soundfile>=0.12.0"
-        ]
-    },
-    entry_points={
-        "console_scripts": [
-            "pdf-convert=interfaces.cli:main",
-            "pdf-converter-web=interfaces.streamlit_app:main",
-        ],
-    },
-    classifiers=[
-        "Development Status :: 4 - Beta",
-        "Intended Audience :: End Users/Desktop",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Topic :: Multimedia :: Sound/Audio :: Speech",
-        "Topic :: Multimedia :: Video",
-        "Topic :: Text Processing :: Markup",
-    ],
-    python_requires=">=3.8",
-    keywords="pdf, text-to-speech, video, subtitles, conversion, accessibility",
-    project_urls={
-        "Bug Reports": "https://github.com/yourusername/pdf-script-converter/issues",
-        "Source": "https://github.com/yourusername/pdf-script-converter",
-        "Documentation": "https://github.com/yourusername/pdf-script-converter/wiki",
-    },
-)
+def create_env_file():
+    """Create .env file from template"""
+    env_file = Path(".env")
+    env_example = Path(".env.example")
+    
+    if env_file.exists():
+        print("✅ .env file already exists")
+        return True
+    
+    if not env_example.exists():
+        print("❌ .env.example file not found")
+        return False
+    
+    try:
+        shutil.copy(env_example, env_file)
+        print("✅ Created .env file from template")
+        print("📝 Please edit .env file and add your RenderForest API key")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to create .env file: {e}")
+        return False
+
+def check_streamlit():
+    """Check if Streamlit is available"""
+    try:
+        import streamlit
+        print("✅ Streamlit is available")
+        return True
+    except ImportError:
+        print("❌ Streamlit not found")
+        return False
+
+def run_demo():
+    """Run the demo script"""
+    print("🎬 Running demo...")
+    try:
+        subprocess.check_call([sys.executable, "demo.py"])
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Demo failed: {e}")
+        return False
+
+def main():
+    """Main setup function"""
+    print("🎬 PDF to Video Creator - Setup")
+    print("=" * 40)
+    
+    # Check Python version
+    if not check_python_version():
+        sys.exit(1)
+    
+    # Install dependencies
+    if not install_dependencies():
+        print("❌ Setup failed during dependency installation")
+        sys.exit(1)
+    
+    # Create environment file
+    if not create_env_file():
+        print("❌ Setup failed during environment setup")
+        sys.exit(1)
+    
+    # Check Streamlit
+    if not check_streamlit():
+        print("❌ Streamlit not available after installation")
+        sys.exit(1)
+    
+    # Run demo
+    print("\n🚀 Running demo to test installation...")
+    run_demo()
+    
+    print("\n✅ Setup completed successfully!")
+    print("\n🎉 Next steps:")
+    print("1. Edit .env file and add your RenderForest API key")
+    print("2. Run: streamlit run app.py")
+    print("3. Open: http://localhost:8501")
+    print("4. Start creating videos from your PDF webinars!")
+
+if __name__ == "__main__":
+    main()
